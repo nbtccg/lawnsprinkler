@@ -1,0 +1,38 @@
+---
+#gpiopins = [4, 17, 18, 21, 22, 23, 24, 25]
+
+host: 192.168.1.243
+port:     5012
+
+schedules: 
+  #every_other_day:
+  #  duration: 10
+  #  cron: "0 20 2-30/2 * * *"
+  #  zones: [ 2, 3, 4, 6, 7]
+  every_day:
+    cron: "0 21 * * * *"
+    duration: 10 
+    zones: [ 1, 7 ]
+ 
+lawn:
+  zone1:
+    description: "Front north lawn"
+    pin: 4
+  zone2:
+    description: "West fence close to house/shed"
+    pin: 17
+  zone3:
+    description: "Fireplace Close to House"
+    pin: 24
+  zone4:
+    description: "Center lawn near deck"
+    pin: 25
+  zone5: 
+    description: "South Lawn and garden"
+    pin: 18
+  zone6:
+    description: "Pear Tree East lawn"
+    pin: 22
+  zone7:
+    description: "Front South Lawn"
+    pin: 23

@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<title>Sprinkler Controller</title>
+<script type=text/javascript>
+//  var $SCRIPT_ROOT = {{ request.script_root|tojson|safe }};
+//  setInterval(                               //Periodically 
+//  $function() {
+//     $.getJSON(                            //Get some values from the server
+//        $SCRIPT_ROOT + '/_get_values',      // At this URL
+//        {},                                // With no extra parameters
+//        function(data)                     // And when you get a response
+//        {
+//          $("#result").text(data.result);  // Write the results into the 
+//                                           // #result element
+//        });
+//  },
+//  500);                                    // And do it every 500ms
+</script>
+
+<body>
+<h1>Sprinkler Controller</h1>
+
+<form role="form" method='POST' action='/'>
+<b>Zone Control:</b>
+<br>
+
+<input type="submit" name="submit" value="All Off"><br><br>
+
+<!-- for zone in sprinklers|dictsort %}-->
+{% for zone, value in sprinklers|dictsort %}
+  <input type="submit" name="submit" value={{zone}}><br>
+  <b>Description: </b>{{ value['description'] }}<br>
+  {% if sprinklers[zone]["state"] == SPRINKLER_ON %}
+  <b>State:</b>ON<br>
+  {% else %}
+  <b>State:</b>OFF<br>
+  {% endif %}
+  <br>
+{% endfor %}
+</form>
+</body>
+</html>
