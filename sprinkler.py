@@ -249,7 +249,7 @@ class Lawn:
             printl("Running event " + schedName + " on zones: " + ", " . join(map(str,zones)))
             #try:
             for zone in zones:
-                printl("Starting sprinklers in zone: " + str(zone))
+                printl("Starting sprinklers in zone: " + str(zone) + " Duration: " + str(duration) + " minutes.")
                 self.sprinklers["zone"+str(zone)].On()
                 for counter in range(0, duration*60, 1):
                     time.sleep(1)
@@ -268,6 +268,8 @@ class Lawn:
     #Once an event is scheduled that event is responsible for 
     # scheduling its next event
     def ScheduleAllEvents(self, yamlSchedule):
+        if yamlSchedule == None:
+            return
         for schedName in yamlSchedule: 
             self.ScheduleOneEvent(schedName, yamlSchedule[schedName]['cron'], yamlSchedule[schedName]['zones'], yamlSchedule[schedName]['duration'])
         self.scheduler.print_jobs()
@@ -391,7 +393,9 @@ def index():
     if request.method == 'POST':
         print "Incoming POST: ", request.data
         if request.form['submit'][:4] == 'zone':
-            mylawn.RunEvent("Web Event", request.form['submit'][4], 5)
+            duration = int(request.form['duration'])
+            print "Duration: ", duration
+            mylawn.RunEvent("Web Event", request.form['submit'][4], duration)
         elif request.form['submit'] == "All Off":
             mylawn.TurnOffAllSprinklers()
         else:
