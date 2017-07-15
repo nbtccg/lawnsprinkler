@@ -1,4 +1,4 @@
 #!/bin/bash
-cd /home/pi/git_repo/scripts/sprinkler/
+cd /home/pi/git_hub/lawnsprinkler/
 . venv/bin/activate
-/home/pi/git_repo/scripts/sprinkler/sprinkler.py --config /home/pi/git_repo/scripts/sprinkler/config.yaml
+/home/pi/git_hub/lawnsprinkler/sprinkler.py --config /home/pi/git_hub/lawnsprinkler/config.yaml
