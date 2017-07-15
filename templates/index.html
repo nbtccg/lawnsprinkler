@@ -25,8 +25,9 @@
 <br>
 
 <input type="submit" name="submit" value="All Off"><br><br>
+Duration: <input type="number" name="duration" value=10>minutes<br><br>
 
-<!-- for zone in sprinklers|dictsort %}-->
+<!-" for zone in sprinklers|dictsort %}-->
 {% for zone, value in sprinklers|dictsort %}
   <input type="submit" name="submit" value={{zone}}><br>
   <b>Description: </b>{{ value['description'] }}<br>
