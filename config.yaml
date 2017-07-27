@@ -16,24 +16,28 @@ port: 5012
 # * * * * * * command to be executed
 
 schedules: 
-  #every_other_day:
-  #  duration: 10
-  #  cron: "0 20 2-30/2 * * *"
-  #  zones: [ 1, 2, 3 ,4 ,5]
-  mon_wed_fri_morning:
+  every_other_day_morning:
     duration: 15
-    cron: "30 6 * * 1,3,5 *"
+    cron: "30 6 2-30/2 * * *"
     zones: [ 1, 2, 3 ,4 ,5]
-  mon_wed_fri_evening:
+  every_other_day_evening:
     duration: 15
-    cron: "0 23 * * 1,3,5 *"
+    cron: "0 20 2-30/2 * * *"
     zones: [ 1, 2, 3 ,4 ,5]
-  twice_week:
-    cron: "0 20 * * 2,6 *"
+#  mon_wed_fri_morning:
+#    duration: 15
+#    cron: "30 6 * * 1,3,5 *"
+#    zones: [ 1]
+#  mon_wed_fri_evening:
+#    duration: 15
+#    cron: "0 22 * * 1,3,5 *"
+#    zones: [ 1]
+  every_day_evening_long:
+    cron: "0 20 * * * *"
     duration: 30 
     zones: [ 6 ]
   everyday:
-    cron: "0 21 * * * *"
+    cron: "0 20 * * * *"
     duration: 10
     zones: [ 7 ]
 
@@ -60,5 +64,6 @@ lawn:
     description: "Drip garden"
     pin: 24
   zone8:
+    hidden: 1
     description: "unused"
     pin: 25

@@ -12,6 +12,7 @@ import argparse
 import yaml
 import time
 import threading
+import concurrent.futures
 #from apscheduler.scheduler import Scheduler
 from apscheduler.schedulers.background import BackgroundScheduler
 import datetime
@@ -20,6 +21,7 @@ import SocketServer
 from tendo import singleton
 import Queue
 from flask import Flask, render_template, request, redirect, url_for
+import StringIO
 
 mst = timezone('US/Mountain')
 
@@ -51,20 +53,21 @@ class Sprinkler:
     'Common base class for all sprinklers'
     sprinklerCount = 0
 
-    def __init__(self, name, pin, description):
+    def __init__(self, name, pin, description, hidden):
         self.name = name
         self.pin = pin
         self.state = SPRINKLER_UNKNOWN
         self.semaphore = threading.BoundedSemaphore(1)        
-        #Immediately setup pin 
+        self.description = description
+        #Immediately setup pin
         try:
             #print "Pin Name: " + str(pin)
             GPIO.setup(pin, GPIO.OUT)
         except:
             printl("WARN: GPIO is not configured properly")
-        #and default sprinkler off
         self.Off()
-        self.description = description
+        if hidden:
+          return
         Sprinkler.sprinklerCount += 1
    
     def displayCount(self):
@@ -144,7 +147,22 @@ class MyTCPHandler(SocketServer.StreamRequestHandler):
 class Lawn:     
     def __init__(self):
         #Start a scheduler as a background thread
-        self.scheduler = BackgroundScheduler(timezone=mst)
+        #self.scheduler = BackgroundScheduler(timezone=mst)
+#, executors.processpool={'type'='processpool', 'max_workers'
+#='1'})
+        self.scheduler = BackgroundScheduler({
+           'apscheduler.executors.default': {
+               'class': 'apscheduler.executors.pool:ThreadPoolExecutor',
+               'max_workers': '1'
+           },
+           'apscheduler.executors.processpool': {
+               'type': 'processpool',
+               'max_workers': '1'
+           },
+           'apscheduler.job_defaults.coalesce': 'false',
+           'apscheduler.job_defaults.max_instances': '1',
+           'apscheduler.timezone': mst
+        })
         self.scheduler.start()
         self.server       = None
         self.serverThread = None
@@ -195,7 +213,7 @@ class Lawn:
                 dur_minutes = int(words[2])
                 if zone in self.sprinklers:
                     zone = zone[4:]
-                    if  dur_minutes > 0 and dur_minutes < 30:
+                    if  dur_minutes > 0 and dur_minutes < 61:
                         logMessage = "Scheduling: " + message
                         self.outgoingMessageQueue.put(logMessage)
                         manualEventRunning = 1
@@ -276,16 +294,22 @@ class Lawn:
         return
 
     def GetStatus(self):
-        self.scheduler.print_jobs()
-        return
+        output = StringIO.StringIO()
+        self.scheduler.print_jobs(out=output)
+        job_list = output.getvalue()
+        output.close()
+        print job_list
+        return job_list
    
     def ScheduleOneEvent(self, schedName, cron, zones, duration):
         parts = cron.split(" ")
         if (len(parts)!=6):
             self.NotifyOwner("Cron job does not have the proper number of fields: ", schedName, cron, zones )
-        printl("Scheduling Event: " + schedName + " " + cron + " " + str(zones) + " Duration: " + str(duration))
+        summary_string = schedName + " " + cron + " " + str(zones) + " Duration: " + str(duration)
+        printl("Scheduling Event: " + summary_string)
         #self.scheduler.add_cron_job(self.RunEvent, minute=parts[0], hour=parts[1], day=parts[2], month=parts[3], day_of_week=parts[4], year=parts[5], args=[schedName, zones, duration])
-        self.scheduler.add_job(self.RunEvent, 'cron', minute=parts[0], hour=parts[1], day=parts[2], month=parts[3], day_of_week=parts[4], year=parts[5], args=[schedName, zones, duration])
+        #misfire_grace_time = time in seconds where job is still allowed to run
+        self.scheduler.add_job(self.RunEvent, 'cron', minute=parts[0], hour=parts[1], day=parts[2], month=parts[3], day_of_week=parts[4], year=parts[5], args=[schedName, zones, duration], misfire_grace_time=None,max_instances=1,name=summary_string)
 
     def Configure(self, yamlConfig):
         stream = open(yamlConfig, 'r')
@@ -305,7 +329,11 @@ class Lawn:
                 if 'pin' not in configuration['lawn'][zone].keys():
                     raise Exception("Zone",zone,"is missing required pin field.")
                     #print zone, configuration['lawn']['description'],"\n"
-                self.sprinklers[zone] = Sprinkler(zone, configuration['lawn'][zone]['pin'], configuration['lawn'][zone]['description'])
+                if 'hidden' in configuration['lawn'][zone] and configuration['lawn'][zone]['hidden'] == 1:
+                    #Dont save hidden sprinklers, they are just there for turning off the GPIO
+                    unused = Sprinkler(zone, configuration['lawn'][zone]['pin'], configuration['lawn'][zone]['description'], 1)
+                else:
+                    self.sprinklers[zone] = Sprinkler(zone, configuration['lawn'][zone]['pin'], configuration['lawn'][zone]['description'], 0)
             if ('host' in configuration.keys()) and ('port' in configuration.keys()):
                 self.StartServer(configuration['host'],configuration['port'])
             else: 
@@ -386,10 +414,12 @@ def index():
         isActiveEvent.wait()
     
     sprinklers = {}
+    schedule_status = ""
     if mylawn is not None:
        print "Info: Collecting sprinkler data"
        sprinklers = mylawn.GetAllSprinklers()
- 
+       schedule_status = mylawn.GetStatus() 
+
     if request.method == 'POST':
         print "Incoming POST: ", request.data
         if request.form['submit'][:4] == 'zone':
@@ -403,7 +433,8 @@ def index():
         return redirect(url_for('index'))
     elif request.method == 'GET':
         print "rendering"
-    return render_template('index.html', sprinklers=sprinklers, SPRINKLER_ON=SPRINKLER_ON, SPRINKLER_OFF=SPRINKLER_OFF, SPRINKLER_UNKNOWN=SPRINKLER_UNKNOWN)
+    print schedule_status
+    return render_template('index.html', sprinklers=sprinklers, SPRINKLER_ON=SPRINKLER_ON, SPRINKLER_OFF=SPRINKLER_OFF, SPRINKLER_UNKNOWN=SPRINKLER_UNKNOWN, schedule_status=schedule_status)
 
 #@app.route('/_get_values')
 #def GetValues():
