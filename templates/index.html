@@ -1,27 +1,76 @@
 <!DOCTYPE html>
 <html lang="en">
-<title>Sprinkler Controller</title>
-
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sprinkler Controller</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 10px;
+    }
+    form {
+      width: 100%;
+      max-width: 400px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    input[type="submit"] {
+      padding: 10px;
+      font-size: 16px;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+    input[type="number"] {
+      width: 100%;
+      padding: 8px;
+      font-size: 16px;
+      border: 1px solid #ccc;
+      border-radius: 5px;
+    }
+    .green {
+      background-color: #d4edda;
+      color: #155724;
+    }
+    .red {
+      background-color: #f8d7da;
+      color: #721c24;
+    }
+    pre {
+      background-color: #f8f9fa;
+      padding: 10px;
+      border-radius: 5px;
+      overflow-x: auto;
+    }
+  </style>
+</head>
 <body>
-<h1>Sprinkler Controller</h1>
+  <h1>Sprinkler Controller</h1>
 
-<form role="form" method='POST' action='/'>
-<b>Zone Control:</b>
-<br>
+  <form role="form" method="POST" action="/">
+    <b>Zone Control:</b>
+    <br>
 
-<input type="submit" name="submit" value="All Off"><br><br>
-Duration: <input type="number" name="duration" value=10>minutes<br><br>
+    <input type="submit" name="submit" value="All Off"><br>
+    <label for="duration">Duration:</label>
+    <input type="number" id="duration" name="duration" value="10"> minutes<br>
 
-<!-" for zone in sprinklers|dictsort %}-->
-{% for zone, value in sprinklers|dictsort %}
-  {% if sprinklers[zone]["state"] == SPRINKLER_ON %}
-    <input type="submit" name="submit" value={{zone}} style=' color: green '> : {{ value['description'] }}<br>
-  {% else %}
-    <input type="submit" name="submit" value={{zone}} style=' color: red '> : {{ value['description'] }}<br>
-  {% endif %}
-{% endfor %}
+    {% for zone, value in sprinklers|dictsort %}
+      {% if sprinklers[zone]["state"] == SPRINKLER_ON %}
+        <input type="submit" name="submit" value="{{zone}}" class="green"> : {{ value['description'] }}<br>
+      {% else %}
+        <input type="submit" name="submit" value="{{zone}}" class="red"> : {{ value['description'] }}<br>
+      {% endif %}
+    {% endfor %}
 
-<pre>{{schedule_status}}</pre>
-</form>
+    <pre>{{schedule_status}}</pre>
+  </form>
 </body>
 </html>
