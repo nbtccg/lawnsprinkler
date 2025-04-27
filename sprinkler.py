@@ -5,7 +5,7 @@
 try:        
     import RPi.GPIO as GPIO
 except:
-    print "Not on the PI"
+    print ("Not on the PI");
 from pytz import timezone
 import sys
 import argparse
@@ -45,7 +45,7 @@ args = parser.parse_args()
 try:
     GPIO.setmode(GPIO.BCM)
 except:
-    print "WARN: GPIO.setmode is not configured properly"
+    print ("WARN: GPIO.setmode is not configured properly")
 
 app = Flask(__name__)
 
@@ -191,7 +191,7 @@ class Lawn:
           return self.sprinklers[zone].GetState()
         else: 
           printl("Zone: ", zone, " is not a recognized sprinkler zone")
-          return SPRINKLER_UNKOWN
+          return SPRINKLER_UNKNOWN
 
     def GetAllSprinklers(self):
         mysprinklers = {} 
@@ -298,7 +298,7 @@ class Lawn:
         self.scheduler.print_jobs(out=output)
         job_list = output.getvalue()
         output.close()
-        print job_list
+        print (job_list)
         return job_list
    
     def ScheduleOneEvent(self, schedName, cron, zones, duration):
@@ -353,7 +353,7 @@ class Lawn:
 def printl(message):
     logFile = open(logname, 'a')
     now = datetime.datetime.now()
-    print str(now) + ": " + message   
+    print (str(now) + ": " + message)
     logFile.write(str(now) + ": " + message + "\n")
     logFile.close()  
 
@@ -388,7 +388,7 @@ def main(yamlConfig, mylawn, isActiveEvent):
         try:
             modifiedTime = os.path.getmtime(yamlConfig)
         except:
-            print "OS problem, will try again soon..."
+            print("OS problem, will try again soon...")
         if modifiedTime > oldTimeStamp:
             oldTimeStamp = modifiedTime
             printl("Config file has changed, updating schedules...")
@@ -416,24 +416,27 @@ def index():
     sprinklers = {}
     schedule_status = ""
     if mylawn is not None:
-       print "Info: Collecting sprinkler data"
+       print("Info: Collecting sprinkler data")
        sprinklers = mylawn.GetAllSprinklers()
        schedule_status = mylawn.GetStatus() 
 
     if request.method == 'POST':
-        print "Incoming POST: ", request.data
+        print ("Incoming POST: ", request.data)
+        print("Incoming POST form data:", request.form)
+        if 'submit' in request.form:
+            print("Submit value:", request.form['submit'])
         if request.form['submit'][:4] == 'zone':
             duration = int(request.form['duration'])
-            print "Duration: ", duration
+            print ("Duration: ", duration)
             mylawn.RunEvent("Web Event", request.form['submit'][4], duration)
         elif request.form['submit'] == "All Off":
             mylawn.TurnOffAllSprinklers()
         else:
-            print "Unknown input", request.form['submit']
+            print ("Unknown input", request.form['submit'])
         return redirect(url_for('index'))
     elif request.method == 'GET':
-        print "rendering"
-    print schedule_status
+        print ("rendering")
+    print(schedule_status)
     return render_template('index.html', sprinklers=sprinklers, SPRINKLER_ON=SPRINKLER_ON, SPRINKLER_OFF=SPRINKLER_OFF, SPRINKLER_UNKNOWN=SPRINKLER_UNKNOWN, schedule_status=schedule_status)
 
 #@app.route('/_get_values')
@@ -448,5 +451,5 @@ def index():
 
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=8080, threaded=True, debug=False)
+    app.run(host="0.0.0.0", port=8080, threaded=True, debug=True)
     
