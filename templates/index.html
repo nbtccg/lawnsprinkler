@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Sprinkler Controller</title>
   <style>
-    
+
     body {
       font-family: Arial, sans-serif;
       margin: 0;
@@ -59,15 +59,15 @@
     <b>Zone Control:</b>
     <br>
 
-    <input type="submit" name="submit" value="All Off"><br>
-    <label for="duration">Duration:</label>
-    <input type="number" id="duration" name="duration" value="10"> minutes<br>
+    <input type="submit" name="submit" value="All Off" class="red"><br>
+    <label for="duration">Duration (minutes):</label>
+    <input type="number" id="duration" name="duration" value="10"><br>
 
     {% for zone, value in sprinklers|dictsort %}
       {% if sprinklers[zone]["state"] == SPRINKLER_ON %}
-        <input type="submit" name="submit" value="{{zone}}" class="green"> : {{ value['description'] }}<br>
+      {{ value['description'] }} : <input type="submit" name="submit" value="{{zone}}" class="green"><br>
       {% else %}
-        <input type="submit" name="submit" value="{{zone}}" class="red"> : {{ value['description'] }}<br>
+      {{ value['description'] }} : <input type="submit" name="submit" value="{{zone}}" class="red"><br>
       {% endif %}
     {% endfor %}
 
