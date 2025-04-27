@@ -88,18 +88,27 @@
     {% endfor %}
 
     <pre>{{schedule_status}}</pre>
-    
-    <h2>Sprinkler Schedule1</h2>
-  <ul style="list-style-type: none; padding: 0;">
-    {% for schedule in schedule_status %}
-    <li style="margin-bottom: 10px;">
-      <strong>Zone:</strong> {{ schedule.zone }}<br>
-      <strong>Start:</strong> {{ schedule.start_time }}<br>
-      <strong>End:</strong> {{ schedule.end_time }}<br>
-      <strong>Status:</strong> {{ schedule.status }}
-    </li>
-    {% endfor %}
-  </ul>
+    <h2>Sprinkler Schedule</h2>
+    <table border="1" style="border-collapse: collapse; width: 100%; max-width: 400px; text-align: left;">
+      <thead>
+        <tr>
+          <th>Zone</th>
+          <th>Start Time</th>
+          <th>End Time</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for schedule in schedule_status %}
+        <tr>
+          <td>{{ schedule.zone }}</td>
+          <td>{{ schedule.start_time }}</td>
+          <td>{{ schedule.end_time }}</td>
+          <td>{{ schedule.status }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
   </form>
 </body>
 </html>
