@@ -88,6 +88,7 @@
     {% endfor %}
 
     <pre>{{schedule_status}}</pre>
+    
     <h2>Sprinkler Schedule1</h2>
   <ul style="list-style-type: none; padding: 0;">
     {% for schedule in schedule_status %}
@@ -99,24 +100,6 @@
     </li>
     {% endfor %}
   </ul>
-
-    <h2>Sprinkler Status2</h2>
-    <table>
-      <tr>
-        <th>Zone</th>
-        <th>Description</th>
-        <th>Status</th>
-      </tr>
-      {% for zone, value in sprinklers|dictsort %}
-      <tr>
-        <td>{{ zone }}</td>
-        <td>{{ value.description }}</td>
-        <td>{{ value.state }}</td>
-      </tr>
-      {% endfor %}
-    </table>
-
-    <input type="hidden" name="duration" value="{{ duration }}">
   </form>
 </body>
 </html>
