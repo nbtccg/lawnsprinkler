@@ -299,7 +299,7 @@ class Lawn:
         return
 
     def GetStatus(self):
-        output = StringIO.StringIO()
+        output = StringIO()
         self.scheduler.print_jobs(out=output)
         job_list = output.getvalue()
         output.close()
