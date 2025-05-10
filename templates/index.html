@@ -90,29 +90,10 @@
       <span style="font-size: 0.9em; color: #555;">(Next: {{ value['next_runtime'] | default('None') }})</span><br>
       {% endif %}
     {% endfor %}
-
-    <pre>{{schedule_status}}</pre>
+    <br>
     <h2>Sprinkler Schedule</h2>
-    <table border="1" style="border-collapse: collapse; width: 100%; max-width: 400px; text-align: left;">
-      <thead>
-        <tr>
-          <th>Zone</th>
-          <th>Start Time</th>
-          <th>End Time</th>
-          <th>Status</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for schedule in schedule_status %}
-        <tr>
-          <td>{{ schedule.zone }}</td>
-          <td>{{ schedule.start_time }}</td>
-          <td>{{ schedule.end_time }}</td>
-          <td>{{ schedule.status }}</td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
+    <pre>{{schedule_status}}</pre>
+
   </form>
 </body>
 </html>
