@@ -1,11 +1,11 @@
-#!./venv/bin/python2.7
+#!./venv/bin/python3
 
 #set tabstop=4 expandtab:
 
 try:        
     import RPi.GPIO as GPIO
 except:
-    print ("Not on the PI");
+    print ("Not on the PI")
 from pytz import timezone
 import sys
 import argparse
