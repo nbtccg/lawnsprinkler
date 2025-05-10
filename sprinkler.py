@@ -4,8 +4,8 @@
 
 try:        
     import RPi.GPIO as GPIO
-except:
-    print ("Not on the PI")
+except Exception as e:
+    print("Not on the PI:", e)
 from pytz import timezone
 import sys
 import argparse
@@ -13,39 +13,38 @@ import yaml
 import time
 import threading
 import concurrent.futures
-#from apscheduler.scheduler import Scheduler
 from apscheduler.schedulers.background import BackgroundScheduler
 import datetime
 import os.path
-import SocketServer
+import socketserver  # Updated from SocketServer
 from tendo import singleton
-import Queue
+import queue  # Updated from Queue
 from flask import Flask, render_template, request, redirect, url_for
-import StringIO
+from io import StringIO  # Updated from StringIO
 
 mst = timezone('US/Mountain')
 
-#Circuit is active low
+# Circuit is active low
 SPRINKLER_ON = 0
 SPRINKLER_OFF = 1
-#Indicates unknown on or off, unititialized
+# Indicates unknown on or off, uninitialized
 SPRINKLER_UNKNOWN = -1 
 
-#Thread for main routine
-#Global because their can only be one no matter how often web app is restarted
+# Thread for main routine
+# Global because there can only be one no matter how often web app is restarted
 sprinklerThread = None
 logname = "/home/pi/sprinkler.log"
 
 parser = argparse.ArgumentParser(description='Lawn Sprinkler Server')
-parser.add_argument('-c', '--config', dest='yamlConfig', required=1,
+parser.add_argument('-c', '--config', dest='yamlConfig', required=True,  # Updated required=1 to required=True
                     help='Yaml configuration describing yard and zone setup.')
 args = parser.parse_args()
 
-#All GPIO operations need to be in try catch blocks
+# All GPIO operations need to be in try-catch blocks
 try:
     GPIO.setmode(GPIO.BCM)
-except:
-    print ("WARN: GPIO.setmode is not configured properly")
+except Exception as e:
+    print("WARN: GPIO.setmode is not configured properly:", e)
 
 app = Flask(__name__)
 
@@ -59,23 +58,22 @@ class Sprinkler:
         self.state = SPRINKLER_UNKNOWN
         self.semaphore = threading.BoundedSemaphore(1)        
         self.description = description
-        #Immediately setup pin
+        # Immediately setup pin
         try:
-            #print "Pin Name: " + str(pin)
             GPIO.setup(pin, GPIO.OUT)
-        except:
-            printl("WARN: GPIO is not configured properly")
+        except Exception as e:
+            printl(f"WARN: GPIO is not configured properly: {e}")
         self.Off()
         if hidden:
-          return
+            return
         Sprinkler.sprinklerCount += 1
    
     def displayCount(self):
-        printl("Total Sprinklers %d" % Sprinkler.sprinklerCount)
+        printl(f"Total Sprinklers {Sprinkler.sprinklerCount}")
 
     def displaySprinkler(self):
         self.semaphore.acquire()
-        printl("Name: ", self.name,  ", pin: ", self.pin, ", description: ", self.description, " state: ", self.state)
+        printl(f"Name: {self.name}, pin: {self.pin}, description: {self.description}, state: {self.state}")
         self.semaphore.release()
 
     def GetDataHash(self):
@@ -84,7 +82,6 @@ class Sprinkler:
         self.semaphore.release()
         return myhash
 
-    
     def GetState(self):
         self.semaphore.acquire()
         mystate = self.state
@@ -92,28 +89,28 @@ class Sprinkler:
         return mystate
 
     def On(self):
-        printl("INFO: Turning on sprinkler: %s" % self.name)
+        printl(f"INFO: Turning on sprinkler: {self.name}")
         self.semaphore.acquire()
         try:
             GPIO.output(self.pin, SPRINKLER_ON)
             self.state = SPRINKLER_ON
-        except:
-            printl("WARN: GPIO is not configured properly")
+        except Exception as e:
+            printl(f"WARN: GPIO is not configured properly: {e}")
         self.semaphore.release()
 
     def Off(self):
         self.semaphore.acquire()
-        printl("INFO: Turning off sprinkler: %s" % self.name)
+        printl(f"INFO: Turning off sprinkler: {self.name}")
         try:
             GPIO.output(self.pin, SPRINKLER_OFF)
             self.state = SPRINKLER_OFF
-        except:
-            printl("WARN: GPIO is not configured properly")
+        except Exception as e:
+            printl(f"WARN: GPIO is not configured properly: {e}")
         self.semaphore.release()
 
 ###############################################################################
 
-class MyTCPHandler(SocketServer.StreamRequestHandler):
+class MyTCPHandler(socketserver.StreamRequestHandler):  # Updated from SocketServer
     """
     The RequestHandler class for our server.
 
@@ -123,33 +120,20 @@ class MyTCPHandler(SocketServer.StreamRequestHandler):
     """
 
     def handle(self):
-        # self.rfile is a file-like object created by the handler;
-        # we can now use e.g. readline() instead of raw recv() calls
         self.data = self.rfile.readline().strip()
         self.server.incomingMessageQueue.put(self.data)
-        #print "{} wrote:".format(self.client_address[0])
-        #print self.data
-        # Likewise, self.wfile is a file-like object used to write back
-        # to the client
-        #self.wfile.write(self.data.upper())
-        #self.wfile.write("Message: " + self.data + " received and added to message queue.")
-        #Wait up to 5 seconds for a reponse message
         timeout = 5
-        while timeout>0 and self.server.outgoingMessageQueue.empty():
-            timeout=timeout - 1
+        while timeout > 0 and self.server.outgoingMessageQueue.empty():
+            timeout -= 1
             time.sleep(1)
         if not self.server.outgoingMessageQueue.empty():
-            self.wfile.write(self.server.outgoingMessageQueue.get_nowait())
+            self.wfile.write(self.server.outgoingMessageQueue.get_nowait().encode())  # Added .encode() for Python 3
         else:
-            self.wfile.write("Message: "+ self.data + " received. No other messages received in time, closing connection.")
+            self.wfile.write(f"Message: {self.data.decode()} received. No other messages received in time, closing connection.".encode())  # Added .decode() and .encode()
 
 ###############################################################################
 class Lawn:     
     def __init__(self):
-        #Start a scheduler as a background thread
-        #self.scheduler = BackgroundScheduler(timezone=mst)
-#, executors.processpool={'type'='processpool', 'max_workers'
-#='1'})
         self.scheduler = BackgroundScheduler({
            'apscheduler.executors.default': {
                'class': 'apscheduler.executors.pool:ThreadPoolExecutor',
@@ -164,11 +148,11 @@ class Lawn:
            'apscheduler.timezone': mst
         })
         self.scheduler.start()
-        self.server       = None
+        self.server = None
         self.serverThread = None
-        self.sprinklers   = None
-        self.incomingMessageQueue = Queue.Queue()
-        self.outgoingMessageQueue = Queue.Queue()
+        self.sprinklers = None
+        self.incomingMessageQueue = queue.Queue()  # Updated from Queue.Queue()
+        self.outgoingMessageQueue = queue.Queue()  # Updated from Queue.Queue()
  
     def __del__(self):
         self.scheduler.shutdown()
@@ -245,7 +229,7 @@ class Lawn:
     def StartServer(self, host, port):
         try:
             printl("Starting server")
-            self.server = SocketServer.TCPServer((host, port), MyTCPHandler)
+            self.server = socketserver.TCPServer((host, port), MyTCPHandler)  # Updated from SocketServer
             #Use the same queue to communicate between lawn and TcpServer
             self.server.incomingMessageQueue = self.incomingMessageQueue
             self.server.outgoingMessageQueue = self.outgoingMessageQueue
@@ -370,11 +354,10 @@ class Lawn:
 
 
 def printl(message):
-    logFile = open(logname, 'a')
-    now = datetime.datetime.now()
-    print (str(now) + ": " + message)
-    logFile.write(str(now) + ": " + message + "\n")
-    logFile.close()  
+    with open(logname, 'a') as logFile:  # Updated to use a context manager
+        now = datetime.datetime.now()
+        print(f"{now}: {message}")
+        logFile.write(f"{now}: {message}\n")
 
 def EpochToTimeStamp(epoch):
     pattern = '%m/%d/%Y %H:%M'
@@ -419,7 +402,7 @@ def main(yamlConfig, mylawn, isActiveEvent):
         mylawn.GetSocketData()
         time.sleep(1)
 
-@app.route('/', methods=['GET','POST'])
+@app.route('/', methods=['GET', 'POST'])
 def index():
     global args
     global sprinklerThread
@@ -435,26 +418,25 @@ def index():
     sprinklers = {}
     schedule_status = ""
     if mylawn is not None:
-       print("Info: Collecting sprinkler data")
-       sprinklers = mylawn.GetAllSprinklers()
-       schedule_status = mylawn.GetStatus() 
+        print("Info: Collecting sprinkler data")
+        sprinklers = mylawn.GetAllSprinklers()
+        schedule_status = mylawn.GetStatus() 
 
     if request.method == 'POST':
-        print ("Incoming POST: ", request.data)
         print("Incoming POST form data:", request.form)
         if 'submit' in request.form:
             print("Submit value:", request.form['submit'])
         if request.form['submit'][:4] == 'zone':
             duration = int(request.form['duration'])
-            print ("Duration: ", duration)
+            print("Duration:", duration)
             mylawn.RunEvent("Web Event", request.form['submit'][4], duration)
         elif request.form['submit'] == "All Off":
             mylawn.TurnOffAllSprinklers()
         else:
-            print ("Unknown input", request.form['submit'])
+            print("Unknown input", request.form['submit'])
         return redirect(url_for('index'))
     elif request.method == 'GET':
-        print ("rendering")
+        print("Rendering")
     print(schedule_status)
     return render_template('index.html', sprinklers=sprinklers, SPRINKLER_ON=SPRINKLER_ON, SPRINKLER_OFF=SPRINKLER_OFF, SPRINKLER_UNKNOWN=SPRINKLER_UNKNOWN, schedule_status=schedule_status)
 
