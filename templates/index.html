@@ -81,9 +81,13 @@
 
     {% for zone, value in sprinklers|dictsort %}
       {% if sprinklers[zone]["state"] == SPRINKLER_ON %}
-      {{ value['description'] }} : <input type="submit" name="submit" value="{{zone}}" class="green"><br>
+      {{ value['description'] }} : 
+      <input type="submit" name="submit" value="{{zone}}" class="green">
+      <span style="font-size: 0.9em; color: #555;">(Next: {{ value['next_runtime'] | default('None') }})</span><br>
       {% else %}
-      {{ value['description'] }} : <input type="submit" name="submit" value="{{zone}}" class="red"><br>
+      {{ value['description'] }} : 
+      <input type="submit" name="submit" value="{{zone}}" class="red">
+      <span style="font-size: 0.9em; color: #555;">(Next: {{ value['next_runtime'] | default('None') }})</span><br>
       {% endif %}
     {% endfor %}
 

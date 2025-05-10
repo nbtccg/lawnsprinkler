@@ -198,7 +198,15 @@ class Lawn:
         if self.sprinklers is None:
             printl("WARN: No sprinklers defined for lawn.")
         for zone in self.sprinklers:
-            mysprinklers[zone] = self.sprinklers[zone].GetDataHash()
+            sprinkler_data = self.sprinklers[zone].GetDataHash()
+            # Get the next runtime for the zone
+            next_runtime = None
+            for job in self.scheduler.get_jobs():
+                if f"zone{zone}" in job.name:  # Match the job name with the zone
+                    next_runtime = job.next_run_time
+                    break
+            sprinkler_data["next_runtime"] = next_runtime.strftime('%Y-%m-%d %H:%M:%S') if next_runtime else "None"
+            mysprinklers[zone] = sprinkler_data
         return mysprinklers
 
     def ParseMessage(self, message):
@@ -303,13 +311,24 @@ class Lawn:
    
     def ScheduleOneEvent(self, schedName, cron, zones, duration):
         parts = cron.split(" ")
-        if (len(parts)!=6):
-            self.NotifyOwner("Cron job does not have the proper number of fields: ", schedName, cron, zones )
-        summary_string = schedName + " " + cron + " " + str(zones) + " Duration: " + str(duration)
+        if len(parts) != 6:
+            self.NotifyOwner("Cron job does not have the proper number of fields: ", schedName, cron, zones)
+        summary_string = f"{schedName} zone{zones} {cron} Duration: {duration}"
         printl("Scheduling Event: " + summary_string)
-        #self.scheduler.add_cron_job(self.RunEvent, minute=parts[0], hour=parts[1], day=parts[2], month=parts[3], day_of_week=parts[4], year=parts[5], args=[schedName, zones, duration])
-        #misfire_grace_time = time in seconds where job is still allowed to run
-        self.scheduler.add_job(self.RunEvent, 'cron', minute=parts[0], hour=parts[1], day=parts[2], month=parts[3], day_of_week=parts[4], year=parts[5], args=[schedName, zones, duration], misfire_grace_time=None,max_instances=1,name=summary_string)
+        self.scheduler.add_job(
+            self.RunEvent,
+            'cron',
+            minute=parts[0],
+            hour=parts[1],
+            day=parts[2],
+            month=parts[3],
+            day_of_week=parts[4],
+            year=parts[5],
+            args=[schedName, zones, duration],
+            misfire_grace_time=None,
+            max_instances=1,
+            name=summary_string
+        )
 
     def Configure(self, yamlConfig):
         stream = open(yamlConfig, 'r')
@@ -452,4 +471,4 @@ def index():
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=8080, threaded=True, debug=True)
-    
+
