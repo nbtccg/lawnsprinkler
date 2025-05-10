@@ -329,12 +329,17 @@ class Lawn:
 
     def Configure(self, yamlConfig):
         printl(f"Loading configuration from: {yamlConfig}")
-        stream = open(yamlConfig, 'r')
         try:
-            configuration = yaml.load(stream, Loader=yaml.FullLoader)  # Use FullLoader for safe YAML parsing
-            printl(f"Configuration loaded: {configuration}")
+            with open(yamlConfig, 'r') as stream:
+                configuration = yaml.load(stream, Loader=yaml.FullLoader)  # Use FullLoader for safe YAML parsing
+                printl(f"Configuration loaded: {configuration}")
+        except yaml.error.MarkedYAMLError as e:
+            # Report the line and column of the YAML syntax error
+            printl(f"YAML syntax error in file '{yamlConfig}' at line {e.problem_mark.line + 1}, column {e.problem_mark.column + 1}: {e.problem}")
+            return
         except Exception as e:
-            printl(f"Yaml syntax error: {e}. Please update config and try again. Not making any changes.")
+            # Handle other exceptions
+            printl(f"Error loading YAML configuration: {e}")
             return
 
         # Only configure sprinklers once
