@@ -190,10 +190,10 @@ class Lawn:
           return SPRINKLER_UNKNOWN
 
     def GetAllSprinklers(self):
-        # Get details of all sprinklers
-        mysprinklers = {} 
         if self.sprinklers is None:
             printl("WARN: No sprinklers defined for lawn.")
+            return {}
+        mysprinklers = {}
         for zone in self.sprinklers:
             sprinkler_data = self.sprinklers[zone].GetDataHash()
             # Get the next runtime for the zone
@@ -217,7 +217,7 @@ class Lawn:
                 zone = words[1]
                 dur_minutes = int(words[2])
                 if zone in self.sprinklers:
-                    zone = zone[4:]
+                    zone = zone[4:]            
                     if  dur_minutes > 0 and dur_minutes < 61:
                         logMessage = "Scheduling: " + message
                         self.outgoingMessageQueue.put(logMessage)
@@ -419,6 +419,8 @@ def index():
     sprinklers = {}
     schedule_status = ""
     if mylawn is not None:
+        if mylawn.sprinklers is None:  # Ensure sprinklers are initialized
+            mylawn.Configure(args.yamlConfig)
         sprinklers = mylawn.GetAllSprinklers()
         schedule_status = mylawn.GetStatus() 
 
