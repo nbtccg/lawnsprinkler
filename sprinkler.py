@@ -199,6 +199,7 @@ class Lawn:
             # Get the next runtime for the zone
             next_runtime = None
             for job in self.scheduler.get_jobs():
+                printl(f"Checking job: {job.name} for zone {zone}")
                 if f"zone{zone}" in job.name:  # Match the job name with the zone
                     print(f"Found job for zone {zone}: {job.name}: {job.next_run_time}")
                     next_runtime = job.next_run_time
