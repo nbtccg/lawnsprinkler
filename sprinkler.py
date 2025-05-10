@@ -22,6 +22,7 @@ from tendo import singleton  # To ensure only one instance of the program runs
 import queue  # For thread-safe message queues
 from flask import Flask, render_template, request, redirect, url_for  # For creating a web interface
 from io import StringIO  # For in-memory string handling
+import re  # For regular expressions
 
 # Set timezone to Mountain Time
 mst = timezone('US/Mountain')
@@ -194,18 +195,31 @@ class Lawn:
             printl("WARN: No sprinklers defined for lawn.")
             return {}
         mysprinklers = {}
+
+        # Iterate over all jobs first
+        for job in self.scheduler.get_jobs():
+            printl(f"Processing job: {job.name}")
+            # Extract the zone list from the job name using regex
+            match = re.search(r'zone\[(.*?)\]', job.name)
+            if match:
+                zone_list = match.group(1).split(",")  # Extract zone numbers as a list
+                zone_list = [f"zone{z.strip()}" for z in zone_list]  # Format as 'zone1', 'zone2', etc.
+                for zone in zone_list:
+                    if zone in self.sprinklers:
+                        sprinkler_data = self.sprinklers[zone].GetDataHash()
+                        # Set the next runtime for the zone
+                        sprinkler_data["next_runtime"] = job.next_run_time.strftime('%Y-%m-%d %H:%M:%S') if job.next_run_time else "HERE"
+                        mysprinklers[zone] = sprinkler_data
+                    else:
+                        printl(f"Zone {zone} in job {job.name} is not recognized.")
+
+        # Add any zones that are not part of any job
         for zone in self.sprinklers:
-            sprinkler_data = self.sprinklers[zone].GetDataHash()
-            # Get the next runtime for the zone
-            next_runtime = None
-            for job in self.scheduler.get_jobs():
-                printl(f"Checking job: {job.name} for zone {zone}")
-                if f"zone{zone}" in job.name:  # Match the job name with the zone
-                    print(f"Found job for zone {zone}: {job.name}: {job.next_run_time}")
-                    next_runtime = job.next_run_time
-                    break
-            sprinkler_data["next_runtime"] = next_runtime.strftime('%Y-%m-%d %H:%M:%S') if next_runtime else "HERE"
-            mysprinklers[zone] = sprinkler_data
+            if zone not in mysprinklers:
+                sprinkler_data = self.sprinklers[zone].GetDataHash()
+                sprinkler_data["next_runtime"] = "No Schedule"
+                mysprinklers[zone] = sprinkler_data
+
         return mysprinklers
 
     def ParseMessage(self, message):
