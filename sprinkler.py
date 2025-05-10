@@ -200,9 +200,10 @@ class Lawn:
             next_runtime = None
             for job in self.scheduler.get_jobs():
                 if f"zone{zone}" in job.name:  # Match the job name with the zone
+                    print(f"Found job for zone {zone}: {job.name}: {job.next_run_time}")
                     next_runtime = job.next_run_time
                     break
-            sprinkler_data["next_runtime"] = next_runtime.strftime('%Y-%m-%d %H:%M:%S') if next_runtime else "None"
+            sprinkler_data["next_runtime"] = next_runtime.strftime('%Y-%m-%d %H:%M:%S') if next_runtime else "HERE"
             mysprinklers[zone] = sprinkler_data
         return mysprinklers
 
