@@ -328,41 +328,42 @@ class Lawn:
         )
 
     def Configure(self, yamlConfig):
+        printl(f"Loading configuration from: {yamlConfig}")
         stream = open(yamlConfig, 'r')
         try:
-            configuration = yaml.load(stream)
-        except:
-            printl("Yaml syntax error, please update config and try again. Not making any changes.")
+            configuration = yaml.load(stream, Loader=yaml.FullLoader)  # Use FullLoader for safe YAML parsing
+            printl(f"Configuration loaded: {configuration}")
+        except Exception as e:
+            printl(f"Yaml syntax error: {e}. Please update config and try again. Not making any changes.")
             return
-        #Only configure spriklers once
-        #After that only allow schedule updates
-        if self.sprinklers == None:
+
+        # Only configure sprinklers once
+        if self.sprinklers is None:
             self.sprinklers = dict()
             for zone in configuration['lawn']:
+                printl(f"Configuring zone: {zone}")
                 if 'description' not in configuration['lawn'][zone].keys():
-                    printl("INFO: Zone",zone,"is missing description field.")
+                    printl(f"INFO: Zone {zone} is missing description field.")
                     configuration['lawn'][zone]['description'] = ""
                 if 'pin' not in configuration['lawn'][zone].keys():
-                    raise Exception("Zone",zone,"is missing required pin field.")
-                    #print zone, configuration['lawn']['description'],"\n"
+                    raise Exception(f"Zone {zone} is missing required pin field.")
                 if 'hidden' in configuration['lawn'][zone] and configuration['lawn'][zone]['hidden'] == 1:
-                    #Dont save hidden sprinklers, they are just there for turning off the GPIO
+                    # Don't save hidden sprinklers
                     unused = Sprinkler(zone, configuration['lawn'][zone]['pin'], configuration['lawn'][zone]['description'], 1)
                 else:
                     self.sprinklers[zone] = Sprinkler(zone, configuration['lawn'][zone]['pin'], configuration['lawn'][zone]['description'], 0)
-            if ('host' in configuration.keys()) and ('port' in configuration.keys()):
-                self.StartServer(configuration['host'],configuration['port'])
-            else: 
-                printl("No host and/or port given in yaml configuration, add these keys and restart program to start server")
+            if 'host' in configuration.keys() and 'port' in configuration.keys():
+                self.StartServer(configuration['host'], configuration['port'])
+            else:
+                printl("No host and/or port given in YAML configuration. Add these keys and restart the program to start the server.")
         else:
-            #TurnOff All Sprinklers
-            #Sprinklers start off, do this here to get the sytem in a stable state
-            # when not starting from scratch
+            # Turn off all sprinklers to stabilize the system
             self.TurnOffAllSprinklers()
-        #Clear out any events, first time through this is empty
+
+        # Clear out any events and populate new ones
         self.EraseEventQueue()
-        #Populate new events
         self.ScheduleAllEvents(configuration['schedules'])
+        printl("Configuration complete.")
         return
 
 
