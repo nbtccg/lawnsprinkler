@@ -2,72 +2,75 @@
 
 #set tabstop=4 expandtab:
 
+# Import necessary modules
 try:        
-    import RPi.GPIO as GPIO
+    import RPi.GPIO as GPIO  # For controlling GPIO pins on Raspberry Pi
 except Exception as e:
-    print("Not on the PI:", e)
-from pytz import timezone
+    print("Not on the PI:", e)  # Handle cases where the code is not running on a Raspberry Pi
+from pytz import timezone  # For timezone handling
 import sys
-import argparse
-import yaml
+import argparse  # For parsing command-line arguments
+import yaml  # For reading YAML configuration files
 import time
 import threading
 import concurrent.futures
-from apscheduler.schedulers.background import BackgroundScheduler
+from apscheduler.schedulers.background import BackgroundScheduler  # For scheduling tasks
 import datetime
 import os.path
-import socketserver  # Updated from SocketServer
-from tendo import singleton
-import queue  # Updated from Queue
-from flask import Flask, render_template, request, redirect, url_for
-from io import StringIO  # Updated from StringIO
+import socketserver  # For creating a TCP server
+from tendo import singleton  # To ensure only one instance of the program runs
+import queue  # For thread-safe message queues
+from flask import Flask, render_template, request, redirect, url_for  # For creating a web interface
+from io import StringIO  # For in-memory string handling
 
+# Set timezone to Mountain Time
 mst = timezone('US/Mountain')
 
-# Circuit is active low
+# Constants for sprinkler states
 SPRINKLER_ON = 0
 SPRINKLER_OFF = 1
-# Indicates unknown on or off, uninitialized
-SPRINKLER_UNKNOWN = -1 
+SPRINKLER_UNKNOWN = -1  # Indicates uninitialized state
 
-# Thread for main routine
-# Global because there can only be one no matter how often web app is restarted
-sprinklerThread = None
-logname = "/home/pi/sprinkler.log"
+# Global variables
+sprinklerThread = None  # Thread for the main routine
+logname = "/home/pi/sprinkler.log"  # Log file path
 
+# Parse command-line arguments
 parser = argparse.ArgumentParser(description='Lawn Sprinkler Server')
-parser.add_argument('-c', '--config', dest='yamlConfig', required=True,  # Updated required=1 to required=True
+parser.add_argument('-c', '--config', dest='yamlConfig', required=True,
                     help='Yaml configuration describing yard and zone setup.')
 args = parser.parse_args()
 
-# All GPIO operations need to be in try-catch blocks
+# Initialize GPIO mode
 try:
-    GPIO.setmode(GPIO.BCM)
+    GPIO.setmode(GPIO.BCM)  # Use Broadcom pin numbering
 except Exception as e:
     print("WARN: GPIO.setmode is not configured properly:", e)
 
+# Initialize Flask app
 app = Flask(__name__)
 
+# Sprinkler class to represent individual sprinklers
 class Sprinkler:
     'Common base class for all sprinklers'
-    sprinklerCount = 0
+    sprinklerCount = 0  # Class variable to track the number of sprinklers
 
     def __init__(self, name, pin, description, hidden):
         self.name = name
         self.pin = pin
-        self.state = SPRINKLER_UNKNOWN
-        self.semaphore = threading.BoundedSemaphore(1)        
+        self.state = SPRINKLER_UNKNOWN  # Initial state is unknown
+        self.semaphore = threading.BoundedSemaphore(1)  # To ensure thread-safe access
         self.description = description
-        # Immediately setup pin
+        # Configure GPIO pin
         try:
             GPIO.setup(pin, GPIO.OUT)
         except Exception as e:
             printl(f"WARN: GPIO is not configured properly: {e}")
-        self.Off()
+        self.Off()  # Turn off the sprinkler initially
         if hidden:
             return
-        Sprinkler.sprinklerCount += 1
-   
+        Sprinkler.sprinklerCount += 1  # Increment the sprinkler count
+
     def displayCount(self):
         printl(f"Total Sprinklers {Sprinkler.sprinklerCount}")
 
@@ -77,18 +80,21 @@ class Sprinkler:
         self.semaphore.release()
 
     def GetDataHash(self):
+        # Return a dictionary with sprinkler details
         self.semaphore.acquire()
         myhash = { "name": self.name, "pin": self.pin, "description": self.description, "state": self.state }
         self.semaphore.release()
         return myhash
 
     def GetState(self):
+        # Return the current state of the sprinkler
         self.semaphore.acquire()
         mystate = self.state
         self.semaphore.release()
         return mystate
 
     def On(self):
+        # Turn on the sprinkler
         printl(f"INFO: Turning on sprinkler: {self.name}")
         self.semaphore.acquire()
         try:
@@ -99,6 +105,7 @@ class Sprinkler:
         self.semaphore.release()
 
     def Off(self):
+        # Turn off the sprinkler
         self.semaphore.acquire()
         printl(f"INFO: Turning off sprinkler: {self.name}")
         try:
@@ -110,16 +117,14 @@ class Sprinkler:
 
 ###############################################################################
 
-class MyTCPHandler(socketserver.StreamRequestHandler):  # Updated from SocketServer
+# TCP handler for managing incoming and outgoing messages
+class MyTCPHandler(socketserver.StreamRequestHandler):
     """
     The RequestHandler class for our server.
-
-    It is instantiated once per connection to the server, and must
-    override the handle() method to implement communication to the
-    client.
     """
 
     def handle(self):
+        # Handle incoming messages from the client
         self.data = self.rfile.readline().strip()
         self.server.incomingMessageQueue.put(self.data)
         timeout = 5
@@ -127,13 +132,16 @@ class MyTCPHandler(socketserver.StreamRequestHandler):  # Updated from SocketSer
             timeout -= 1
             time.sleep(1)
         if not self.server.outgoingMessageQueue.empty():
-            self.wfile.write(self.server.outgoingMessageQueue.get_nowait().encode())  # Added .encode() for Python 3
+            self.wfile.write(self.server.outgoingMessageQueue.get_nowait().encode())  # Send response to client
         else:
-            self.wfile.write(f"Message: {self.data.decode()} received. No other messages received in time, closing connection.".encode())  # Added .decode() and .encode()
+            self.wfile.write(f"Message: {self.data.decode()} received. No other messages received in time, closing connection.".encode())
 
 ###############################################################################
+
+# Lawn class to manage all sprinklers and schedules
 class Lawn:     
     def __init__(self):
+        # Initialize the scheduler
         self.scheduler = BackgroundScheduler({
            'apscheduler.executors.default': {
                'class': 'apscheduler.executors.pool:ThreadPoolExecutor',
@@ -151,13 +159,15 @@ class Lawn:
         self.server = None
         self.serverThread = None
         self.sprinklers = None
-        self.incomingMessageQueue = queue.Queue()  # Updated from Queue.Queue()
-        self.outgoingMessageQueue = queue.Queue()  # Updated from Queue.Queue()
+        self.incomingMessageQueue = queue.Queue()  # Queue for incoming messages
+        self.outgoingMessageQueue = queue.Queue()  # Queue for outgoing messages
  
     def __del__(self):
+        # Shutdown the scheduler when the object is deleted
         self.scheduler.shutdown()
         
     def TurnOffAllSprinklers(self):
+        # Turn off all sprinklers
         if self.sprinklers == None:
             return
         for zone in self.sprinklers:
@@ -165,12 +175,14 @@ class Lawn:
         return
 
     def GetSocketData(self):
+        # Retrieve data from the incoming message queue
         if self.incomingMessageQueue.empty():
             return None
         else:
             return self.ParseMessage(self.incomingMessageQueue.get_nowait())
 
     def GetSprinklerState(self, zone):
+        # Get the state of a specific sprinkler zone
         if zone in self.sprinklers:
           return self.sprinklers[zone].GetState()
         else: 
@@ -178,6 +190,7 @@ class Lawn:
           return SPRINKLER_UNKNOWN
 
     def GetAllSprinklers(self):
+        # Get details of all sprinklers
         mysprinklers = {} 
         if self.sprinklers is None:
             printl("WARN: No sprinklers defined for lawn.")
@@ -354,7 +367,7 @@ class Lawn:
 
 
 def printl(message):
-    with open(logname, 'a') as logFile:  # Updated to use a context manager
+    with open(logname, 'a') as logFile:
         now = datetime.datetime.now()
         print(f"{now}: {message}")
         logFile.write(f"{now}: {message}\n")
@@ -364,28 +377,18 @@ def EpochToTimeStamp(epoch):
     return time.strftime(pattern, time.localtime(epoch))
 
 def main(yamlConfig, mylawn, isActiveEvent):
-    #Only allow this program to run one instance
-    #Multiple instances could damage the hardware
+    #Ensure only one instance of the program runs
     me = singleton.SingleInstance()
 
+    # Initialize log file
     logFile = open(logname, 'w')
     logFile.write("Beginning Sprinkler Routine:")
     logFile.close()
 
-    #Create a bogus old date to kickstart the scheduling
+    # Main loop to monitor configuration changes and manage sprinklers
     oldTimeStamp = int(0)
-
-    now = datetime.datetime.now()
-    eventQueue = ()
-    counter=0
     while 1:
-        counter += 1
-        #Periodically display status
-        if counter>10:
-            counter = 0
-            #mylawn.GetStatus()
-        now = datetime.datetime.now()
-        #Check configs for new updates
+        # Check for configuration updates
         modifiedTime = oldTimeStamp
         try:
             modifiedTime = os.path.getmtime(yamlConfig)
@@ -394,14 +397,12 @@ def main(yamlConfig, mylawn, isActiveEvent):
         if modifiedTime > oldTimeStamp:
             oldTimeStamp = modifiedTime
             printl("Config file has changed, updating schedules...")
-            #print str(oldTimeStamp) + "\n" + str(modifiedTime) + "\n" + str(now) 
-            #Read Configuration and schedule events
             mylawn.Configure(yamlConfig)
-            #Notify the parent thread that we are now up and running
             isActiveEvent.set()
         mylawn.GetSocketData()
         time.sleep(1)
 
+# Flask route for the web interface
 @app.route('/', methods=['GET', 'POST'])
 def index():
     global args
@@ -418,38 +419,18 @@ def index():
     sprinklers = {}
     schedule_status = ""
     if mylawn is not None:
-        print("Info: Collecting sprinkler data")
         sprinklers = mylawn.GetAllSprinklers()
         schedule_status = mylawn.GetStatus() 
 
     if request.method == 'POST':
-        print("Incoming POST form data:", request.form)
         if 'submit' in request.form:
-            print("Submit value:", request.form['submit'])
-        if request.form['submit'][:4] == 'zone':
-            duration = int(request.form['duration'])
-            print("Duration:", duration)
-            mylawn.RunEvent("Web Event", request.form['submit'][4], duration)
-        elif request.form['submit'] == "All Off":
-            mylawn.TurnOffAllSprinklers()
-        else:
-            print("Unknown input", request.form['submit'])
+            if request.form['submit'][:4] == 'zone':
+                duration = int(request.form['duration'])
+                mylawn.RunEvent("Web Event", request.form['submit'][4], duration)
+            elif request.form['submit'] == "All Off":
+                mylawn.TurnOffAllSprinklers()
         return redirect(url_for('index'))
-    elif request.method == 'GET':
-        print("Rendering")
-    print(schedule_status)
     return render_template('index.html', sprinklers=sprinklers, SPRINKLER_ON=SPRINKLER_ON, SPRINKLER_OFF=SPRINKLER_OFF, SPRINKLER_UNKNOWN=SPRINKLER_UNKNOWN, schedule_status=schedule_status)
-
-#@app.route('/_get_values')
-#def GetValues():
-#    global mylawn
-#    sprinklers = {}
-#    if mylawn is not None:
-#       print "Info: Collecting sprinkler data"
-#       sprinklers = mylawn.GetAllSprinklers()
-#    return jsonify(sprinklers)
-#render_template('index.html', sprinklers=sprinklers, SPRINKLER_ON=SPRINKLER_ON, SPRINKLER_OFF=SPRINKLER_OFF, SPRINKLER_UNKNOWN=SPRINKLER_UNKNOWN)
-
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=8080, threaded=True, debug=True)
