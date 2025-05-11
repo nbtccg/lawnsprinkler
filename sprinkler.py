@@ -460,6 +460,7 @@ def index():
 def control():
     zone = request.args.get('zone')
     action = request.args.get('action')
+    print(f"Control request: zone={zone}, action={action}")
     if action == 'on':
         mylawn.RunEvent("Web Event", zone, 15)  # Example: Turn on the zone for 15 minutes
     elif action == 'off':
