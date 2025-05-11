@@ -68,30 +68,33 @@
   </style>
   <script>
     // Function to toggle button color and send a request to the server
-    function toggleZone(button, zone, action) {
-      // Change button color based on the action
-      if (action === 'on') {
-        button.classList.remove('red');
-        button.classList.add('green');
-        button.textContent = `${zone} (On)`;
-      } else {
-        button.classList.remove('green');
-        button.classList.add('red');
-        button.textContent = `${zone} (Off)`;
-      }
+    function toggleZone(button, zone) {
+  // Determine the current action based on the button's class
+  const action = button.classList.contains('red') ? 'on' : 'off';
 
-      // Send a request to the server
-      fetch(`/control?zone=${zone}&action=${action}`, {
-        method: 'POST'
-      })
-      .then(response => response.json())
-      .then(data => {
-        console.log(`Server response for ${zone}:`, data);
-      })
-      .catch(error => {
-        console.error(`Error controlling ${zone}:`, error);
-      });
-    }
+  // Change button color and text based on the action
+  if (action === 'on') {
+    button.classList.remove('red');
+    button.classList.add('green');
+    button.textContent = `${zone} (On)`;
+  } else {
+    button.classList.remove('green');
+    button.classList.add('red');
+    button.textContent = `${zone} (Off)`;
+  }
+
+  // Send a request to the server
+  fetch(`/control?zone=${zone}&action=${action}`, {
+    method: 'POST'
+  })
+    .then(response => response.json())
+    .then(data => {
+      console.log(`Server response for ${zone}:`, data);
+    })
+    .catch(error => {
+      console.error(`Error controlling ${zone}:`, error);
+    });
+}
   </script>
 </head>
 <body>
@@ -109,9 +112,9 @@
       <div>
         {{ value['description'] }} :
         {% if sprinklers[zone]["state"] == SPRINKLER_ON %}
-        <button type="button" class="green" onclick="toggleZone(this, '{{zone[4:]}}', 'off')">{{zone}} (On)</button>
+        <button type="button" class="green" onclick="toggleZone(this, '{{zone[4:]}}')">{{zone}} (On)</button>
         {% else %}
-        <button type="button" class="red" onclick="toggleZone(this, '{{zone[4:]}}', 'on')">{{zone}} (Off)</button>
+        <button type="button" class="red" onclick="toggleZone(this, '{{zone[4:]}}')">{{zone}} (Off)</button>
         {% endif %}
         <span style="font-size: 0.9em; color: #555;">(Next: {{ value['next_runtime'] | default('None') }})</span>
       </div>
