@@ -109,9 +109,9 @@
       <div>
         {{ value['description'] }} :
         {% if sprinklers[zone]["state"] == SPRINKLER_ON %}
-        <button type="button" class="green" onclick="toggleZone(this, '{{zone}}', 'off')">{{zone}} (On)</button>
+        <button type="button" class="green" onclick="toggleZone(this, '{{zone[4:]}}', 'off')">{{zone}} (On)</button>
         {% else %}
-        <button type="button" class="red" onclick="toggleZone(this, '{{zone}}', 'on')">{{zone}} (Off)</button>
+        <button type="button" class="red" onclick="toggleZone(this, '{{zone[4:]}}', 'on')">{{zone}} (Off)</button>
         {% endif %}
         <span style="font-size: 0.9em; color: #555;">(Next: {{ value['next_runtime'] | default('None') }})</span>
       </div>

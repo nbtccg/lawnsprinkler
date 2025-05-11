@@ -240,16 +240,16 @@ class Lawn:
                         manualEventRunning = 1
                         self.RunEvent("ManualCall", [zone], dur_minutes)
                     else:
-                        logMessage = "Duration out of range 0<dur<30min: " + str(dur_minutes)
+                        logMessage = f"Duration out of range 0<dur<30min: {dur_minutes}"
                 else:
                     logMessage = "Zone unrecognized: " + zone                
             else:
-                logMessage = "Recieved badly formatted ON message: '" + message + "'"
+                logMessage = f"Recieved badly formatted ON message: '{message}'"
         elif words[0]=="OFF":
             logMessage = "Message Received: All Off"
             self.TurnOffAllSprinklers()
         else:
-            logMessage = "Message not recognized: '" + message + "'"
+            logMessage = f"Message not recognized: '{message}'"
         printl(logMessage)
         if not manualEventRunning:
             self.outgoingMessageQueue.put(logMessage)
@@ -262,43 +262,39 @@ class Lawn:
             #Use the same queue to communicate between lawn and TcpServer
             self.server.incomingMessageQueue = self.incomingMessageQueue
             self.server.outgoingMessageQueue = self.outgoingMessageQueue
-            printl("Creating thread to handle server")
+            printl(f"Creating thread to handle server")
             self.serverThread = threading.Thread(target=self.server.serve_forever)
             self.serverThread.setDaemon(True) #don't hang on exit
-            printl("Starting server thread")
+            printl(f"Starting server thread")
             self.serverThread.start()
-            printl("Server up and running")
+            printl(f"Server up and running")
         except:
-            printl("Error: Problem starting server")
+            printl(f"Error: Problem starting server")
             pass
 
     def EraseEventQueue(self):
-        printl("Erasing all previously scheduled events.")
+        printl(f"Erasing all previously scheduled events.")
         for job in self.scheduler.get_jobs():
             job.remove()
         return
 
     def NotifyOwner(self, message):
         self.TurnOffAllSprinklers()
-        printl(message)
+        printl(f"{message}")
 
     def RunEvent(self, schedName, zones, duration):
         self.TurnOffAllSprinklers()
         try:
-            printl("Running event " + schedName + " on zones: " + ", " . join(map(str,zones)))
-            #try:
+            printl(f"Running event {schedName} on zones: {', '.join(map(str, zones))}")
             for zone in zones:
-                printl("Starting sprinklers in zone: " + str(zone) + " Duration: " + str(duration) + " minutes.")
-                self.sprinklers["zone"+str(zone)].On()
-                for counter in range(0, duration*60, 1):
+                printl(f"Starting sprinklers in zone: {zone} Duration: {duration} minutes.")
+                self.sprinklers[f"zone{zone}"].On()
+                for counter in range(0, duration * 60, 1):
                     time.sleep(1)
                     self.GetSocketData()
-                printl("Stopping sprinklers in zone: " + str(zone))
-                self.sprinklers["zone"+str(zone)].Off()
-            #except:
-            #    self.NotifyOwner("Danger Danger: Something bad happened in RunEvent() shutting down")
-
-            printl("Finished event " + schedName + " on zones: " + ", " . join(map(str,zones)))
+                printl(f"Stopping sprinklers in zone: {zone}")
+                self.sprinklers[f"zone{zone}"].Off()
+            printl(f"Finished event {schedName} on zones: {', '.join(map(str, zones))}")
         finally:
             pass
 
