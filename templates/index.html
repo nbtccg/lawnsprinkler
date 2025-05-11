@@ -5,7 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Sprinkler Controller</title>
   <style>
-
     body {
       font-family: Arial, sans-serif;
       margin: 0;
@@ -22,7 +21,7 @@
       flex-direction: column;
       gap: 10px;
     }
-    input[type="submit"] {
+    input[type="button"] {
       padding: 10px;
       font-size: 16px;
       border: none;
@@ -67,40 +66,59 @@
        background-color: #f2f2f2;
     }
   </style>
+  <script>
+    // Function to toggle button color and send a request to the server
+    function toggleZone(button, zone, action) {
+      // Change button color based on the action
+      if (action === 'on') {
+        button.classList.remove('red');
+        button.classList.add('green');
+        button.textContent = `${zone} (On)`;
+      } else {
+        button.classList.remove('green');
+        button.classList.add('red');
+        button.textContent = `${zone} (Off)`;
+      }
+
+      // Send a request to the server
+      fetch(`/control?zone=${zone}&action=${action}`, {
+        method: 'POST'
+      })
+      .then(response => response.json())
+      .then(data => {
+        console.log(`Server response for ${zone}:`, data);
+      })
+      .catch(error => {
+        console.error(`Error controlling ${zone}:`, error);
+      });
+    }
+  </script>
 </head>
 <body>
   <h1>Sprinkler Controller</h1>
 
-  <form role="form" method="POST" action="/">
+  <form role="form">
     <b>Zone Control:</b>
     <br>
 
-    <input type="submit" name="submit" value="All Off" class="red"><br>
+    <button type="button" class="red" onclick="toggleZone(this, 'All', 'off')">All Off</button><br>
     <label for="duration">Duration (minutes):</label>
     <input type="number" id="duration" name="duration" value="10"><br>
 
     {% for zone, value in sprinklers|dictsort %}
-      {% if sprinklers[zone]["state"] == SPRINKLER_ON %}
-      {{ value['description'] }} : 
-      <input type="submit" name="submit" value="{{zone}}" class="green">
-      {% else %}
-      {{ value['description'] }} : 
-      <input type="submit" name="submit" value="{{zone}}" class="red">
-      {% endif %}
-      <span style="font-size: 0.9em; color: #555;">(Next: {{ value['next_runtime'] | default('None') }})</span><br>
+      <div>
+        {{ value['description'] }} :
+        {% if sprinklers[zone]["state"] == SPRINKLER_ON %}
+        <button type="button" class="green" onclick="toggleZone(this, '{{zone}}', 'off')">{{zone}} (On)</button>
+        {% else %}
+        <button type="button" class="red" onclick="toggleZone(this, '{{zone}}', 'on')">{{zone}} (Off)</button>
+        {% endif %}
+        <span style="font-size: 0.9em; color: #555;">(Next: {{ value['next_runtime'] | default('None') }})</span>
+      </div>
     {% endfor %}
     <br>
     <h2>Sprinkler Schedule</h2>
     <pre>{{schedule_status}}</pre>
-<script>
-  function turnGreen(buttonId) {
-    // Get the button element by its ID
-    const button = document.getElementById(buttonId);
-    // Change the button's background color to green
-    button.style.backgroundColor = "#28a745"; // Green color
-    button.style.color = "white"; // Optional: Change text color to white
-  }
-</script>
   </form>
 </body>
 </html>
