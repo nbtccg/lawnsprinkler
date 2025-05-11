@@ -208,7 +208,7 @@ class Lawn:
                     if zone in self.sprinklers:
                         sprinkler_data = self.sprinklers[zone].GetDataHash()
                         # Set the next runtime for the zone
-                        sprinkler_data["next_runtime"] = job.next_run_time.strftime('%Y-%m-%d %H:%M:%S') if job.next_run_time else "HERE"
+                        sprinkler_data["next_runtime"] = job.next_run_time.strftime('%A %m-%d %I:%M%p') if job.next_run_time else "HERE"
                         mysprinklers[zone] = sprinkler_data
                     else:
                         printl(f"Zone {zone} in job {job.name} is not recognized.")
