@@ -92,7 +92,15 @@
     <br>
     <h2>Sprinkler Schedule</h2>
     <pre>{{schedule_status}}</pre>
-
+<script>
+  function turnGreen(buttonId) {
+    // Get the button element by its ID
+    const button = document.getElementById(buttonId);
+    // Change the button's background color to green
+    button.style.backgroundColor = "#28a745"; // Green color
+    button.style.color = "white"; // Optional: Change text color to white
+  }
+</script>
   </form>
 </body>
 </html>
