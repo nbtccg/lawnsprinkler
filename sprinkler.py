@@ -20,7 +20,7 @@ import os.path
 import socketserver  # For creating a TCP server
 from tendo import singleton  # To ensure only one instance of the program runs
 import queue  # For thread-safe message queues
-from flask import Flask, render_template, request, redirect, url_for  # For creating a web interface
+from flask import Flask, render_template, request, redirect, url_for, jsonify  # For creating a web interface
 from io import StringIO  # For in-memory string handling
 import re  # For regular expressions
 
@@ -455,6 +455,17 @@ def index():
                 mylawn.TurnOffAllSprinklers()
         return redirect(url_for('index'))
     return render_template('index.html', sprinklers=sprinklers, SPRINKLER_ON=SPRINKLER_ON, SPRINKLER_OFF=SPRINKLER_OFF, SPRINKLER_UNKNOWN=SPRINKLER_UNKNOWN, schedule_status=schedule_status)
+
+@app.route('/control', methods=['POST'])
+def control():
+    zone = request.args.get('zone')
+    action = request.args.get('action')
+    if action == 'on':
+        mylawn.RunEvent("Web Event", zone, 15)  # Example: Turn on the zone for 15 minutes
+    elif action == 'off':
+        mylawn.TurnOffAllSprinklers() if zone == 'All' else mylawn.TurnOffZone(zone)
+    return jsonify({"status": "success", "zone": zone, "action": action})
+
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=8080, threaded=True, debug=True)
