@@ -467,6 +467,19 @@ def control():
             mylawn.TurnOffZone(zone)
     return jsonify({"status": "success", "zone": zone, "action": action})
 
+@app.route('/run_zones', methods=['POST'])
+def run_zones():
+    data = request.get_json()
+    zones_str = data.get('zones', '')
+    duration = int(data.get('duration', 10))
+    # Parse zones, remove whitespace, and filter out empty entries
+    zones = [z.strip() for z in zones_str.split(',') if z.strip()]
+    if not zones:
+        return jsonify({"status": "No zones specified"}), 400
+    print(f"Running zones in series: {zones} for {duration} minutes each")
+    mylawn.RunEvent("Web RunZones", zones, duration)
+    return jsonify({"status": f"Started zones {', '.join(zones)} for {duration} minutes each"})
+
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=8080, threaded=True, debug=True)
