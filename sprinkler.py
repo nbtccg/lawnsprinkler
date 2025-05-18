@@ -431,14 +431,19 @@ def control():
     duration = int(request.args.get('duration', 10))
     printl(f"Control request: zone={zone}, action={action}, duration={duration}")
     if action == 'on':
-        # Turn off all other zones first
-        for z in mylawn.sprinklers:
-            if z != f"zone{zone}":
-                mylawn.TurnOffZone(z[4:])
-        mylawn.RunEvent("Web Event", [zone], duration)
+        # Only run for individual zones, not 'All'
+        if zone != 'All':
+            # Turn off all other zones first
+            for z in mylawn.sprinklers:
+                if z != f"zone{zone}":
+                    mylawn.TurnOffZone(z[4:])
+            mylawn.RunEvent("Web Event", [zone], duration)
     elif action == 'off':
-        mylawn.stopEvent.set()
-        mylawn.TurnOffAllSprinklers()
+        if zone == 'All':
+            mylawn.stopEvent.set()
+            mylawn.TurnOffAllSprinklers()
+        else:
+            mylawn.TurnOffZone(zone)
     return jsonify({"status": "success", "zone": zone, "action": action})
 
 @app.route('/run_zones', methods=['POST'])
