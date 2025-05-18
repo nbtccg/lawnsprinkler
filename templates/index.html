@@ -91,56 +91,60 @@
     }
   </style>
   <script>
-    // Function to toggle button color and send a request to the server
-    function toggleZone(button, zone) {
-      const duration = document.getElementById('duration').value || 10;
-      const action = button.classList.contains('red') ? 'on' : 'off';
+  // Helper to get all zone buttons
+  function getZoneButtons() {
+    return Array.from(document.querySelectorAll('.zone-row button')).filter(btn => btn.dataset.zone && btn.dataset.zone !== "All");
+  }
 
-      // Change button color and text based on the action
-      if (action === 'on') {
-        button.classList.remove('red');
-        button.classList.add('green');
-        button.textContent = `${zone} (On)`;
-      } else {
-        button.classList.remove('green');
-        button.classList.add('red');
-        button.textContent = `${zone} (Off)`;
-      }
+  function toggleZone(button, zone) {
+    const duration = document.getElementById('duration').value || 10;
+    const isTurningOn = button.classList.contains('red');
 
-      // Send a request to the server
-      fetch(`/control?zone=${zone}&action=${action}&duration=${duration}`, {
-        method: 'POST'
-      })
-        .then(response => response.json())
-        .then(data => {
-          console.log(`Server response for ${zone}:`, data);
-        })
-        .catch(error => {
-          console.error(`Error controlling ${zone}:`, error);
-        });
-    }
-
-    function runZones() {
-      const zones = document.getElementById('runZonesInput').value;
-      const duration = document.getElementById('duration').value || 10;
-      if (!zones) {
-        alert("Please enter at least one zone.");
-        return;
-      }
-      fetch(`/run_zones`, {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({zones: zones, duration: duration})
-      })
-      .then(response => response.json())
-      .then(data => {
-        alert(data.status);
-      })
-      .catch(error => {
-        alert("Error: " + error);
+    if (isTurningOn) {
+      // Turn off all other zones first
+      getZoneButtons().forEach(btn => {
+        if (btn !== button && btn.classList.contains('green')) {
+          btn.classList.remove('green');
+          btn.classList.add('red');
+          btn.textContent = `${btn.dataset.zone} (Off)`;
+          fetch(`/control?zone=${btn.dataset.zone}&action=off`, { method: 'POST' });
+        }
       });
+      // Turn on this zone
+      button.classList.remove('red');
+      button.classList.add('green');
+      button.textContent = `${zone} (On)`;
+      fetch(`/control?zone=${zone}&action=on&duration=${duration}`, { method: 'POST' });
+    } else {
+      // Turn off this zone
+      button.classList.remove('green');
+      button.classList.add('red');
+      button.textContent = `${zone} (Off)`;
+      fetch(`/control?zone=${zone}&action=off`, { method: 'POST' });
     }
-  </script>
+  }
+
+  function runZones() {
+    const zones = document.getElementById('runZonesInput').value;
+    const duration = document.getElementById('duration').value || 10;
+    if (!zones) {
+      alert("Please enter at least one zone.");
+      return;
+    }
+    fetch(`/run_zones`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({zones: zones, duration: duration})
+    })
+    .then(response => response.json())
+    .then(data => {
+      alert(data.status);
+    })
+    .catch(error => {
+      alert("Error: " + error);
+    });
+  }
+</script>
 </head>
 <body>
   <h1>Sprinkler Controller</h1>
@@ -160,9 +164,9 @@
             <span style="font-size: 0.9em; color: #555;">(Next: {{ value['next_runtime'] | default('None') }})</span>
           </span>
           {% if sprinklers[zone]["state"] == SPRINKLER_ON %}
-          <button type="button" class="green" onclick="toggleZone(this, '{{zone[4:]}}')">{{zone}} (On)</button>
+          <button type="button" class="green" data-zone="{{zone[4:]}}" onclick="toggleZone(this, '{{zone[4:]}}')">{{zone}} (On)</button>
           {% else %}
-          <button type="button" class="red" onclick="toggleZone(this, '{{zone[4:]}}')">{{zone}} (Off)</button>
+          <button type="button" class="red" data-zone="{{zone[4:]}}" onclick="toggleZone(this, '{{zone[4:]}}')">{{zone}} (Off)</button>
           {% endif %}
         </div>
       {% endfor %}
