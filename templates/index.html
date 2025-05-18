@@ -97,6 +97,10 @@
   }
 
   function toggleZone(button, zone) {
+    if (zone === 'All') {
+      fetch(`/control?zone=All&action=off`, { method: 'POST' });
+      return;
+    }
     const duration = document.getElementById('duration').value || 10;
     const isTurningOn = button.classList.contains('red');
 
