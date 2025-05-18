@@ -420,9 +420,13 @@ def control():
     """AJAX endpoint to control individual zones or all zones."""
     zone = request.args.get('zone')
     action = request.args.get('action')
-    duration = int(request.args.get('duration', 10))  # <-- Use duration from request
+    duration = int(request.args.get('duration', 10))
     printl(f"Control request: zone={zone}, action={action}, duration={duration}")
     if action == 'on':
+        # Turn off all other zones first
+        for z in mylawn.sprinklers:
+            if z != f"zone{zone}":
+                mylawn.TurnOffZone(z[4:])
         mylawn.RunEvent("Web Event", [zone], duration)
     elif action == 'off':
         if zone == 'All':
