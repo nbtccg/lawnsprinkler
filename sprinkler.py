@@ -351,6 +351,14 @@ class Lawn:
         self.ScheduleAllEvents(configuration['schedules'])
         printl("Configuration complete.")
 
+    def TurnOffZone(self, zone):
+        """Turn off a specific zone by zone number (as string)."""
+        zone_key = f"zone{zone}"
+        if self.sprinklers and zone_key in self.sprinklers:
+            self.sprinklers[zone_key].Off()
+        else:
+            printl(f"Zone {zone_key} not found in sprinklers.")
+
 # --- Utility Functions ---
 def printl(message):
     """Log a message to the log file and print to stdout."""
