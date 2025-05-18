@@ -470,3 +470,6 @@ def run_zones():
     mylawn.RunEvent("Web RunZones", zones, duration)
     return jsonify({"status": f"Started zones {', '.join(zones)} for {duration} minutes each"})
 
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=8080, debug=True)
+
