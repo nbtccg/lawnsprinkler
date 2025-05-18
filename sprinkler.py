@@ -409,7 +409,7 @@ def index():
         if 'submit' in request.form:
             if request.form['submit'][:4] == 'zone':
                 duration = int(request.form['duration'])
-                mylawn.RunEvent("Web Event", request.form['submit'][4], duration)
+                mylawn.RunEvent("Web Event", [request.form['submit'][4:]], duration)
             elif request.form['submit'] == "All Off":
                 mylawn.TurnOffAllSprinklers()
         return redirect(url_for('index'))
@@ -429,11 +429,8 @@ def control():
                 mylawn.TurnOffZone(z[4:])
         mylawn.RunEvent("Web Event", [zone], duration)
     elif action == 'off':
-        if zone == 'All':
-            mylawn.stopEvent.set()
-            mylawn.TurnOffAllSprinklers()
-        else:
-            mylawn.TurnOffZone(zone)
+        mylawn.stopEvent.set()
+        mylawn.TurnOffAllSprinklers()
     return jsonify({"status": "success", "zone": zone, "action": action})
 
 @app.route('/run_zones', methods=['POST'])
