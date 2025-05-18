@@ -95,6 +95,27 @@
       console.error(`Error controlling ${zone}:`, error);
     });
 }
+
+function runZones() {
+  const zones = document.getElementById('runZonesInput').value;
+  const duration = document.getElementById('runZonesDuration').value;
+  if (!zones) {
+    alert("Please enter at least one zone.");
+    return;
+  }
+  fetch(`/run_zones`, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({zones: zones, duration: duration})
+  })
+  .then(response => response.json())
+  .then(data => {
+    alert(data.status);
+  })
+  .catch(error => {
+    alert("Error: " + error);
+  });
+}
   </script>
 </head>
 <body>
@@ -122,6 +143,14 @@
     <br>
     <h2>Sprinkler Schedule</h2>
     <pre>{{schedule_status}}</pre>
+
+    <div style="margin-top:20px;">
+      <label for="runZonesInput"><b>Run Zones (comma-separated, e.g., 1,3,5):</b></label>
+      <input type="text" id="runZonesInput" name="runZonesInput" placeholder="e.g., 1,3,5">
+      <label for="runZonesDuration">Duration (minutes):</label>
+      <input type="number" id="runZonesDuration" name="runZonesDuration" value="10" min="1">
+      <button type="button" onclick="runZones()">Run Zones</button>
+    </div>
   </form>
 </body>
 </html>

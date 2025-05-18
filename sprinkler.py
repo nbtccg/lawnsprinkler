@@ -53,68 +53,60 @@ app = Flask(__name__)
 
 # Sprinkler class to represent individual sprinklers
 class Sprinkler:
-    'Common base class for all sprinklers'
-    sprinklerCount = 0  # Class variable to track the number of sprinklers
+    """Represents a single sprinkler zone."""
+    sprinklerCount = 0
 
     def __init__(self, name, pin, description, hidden):
         self.name = name
         self.pin = pin
-        self.state = SPRINKLER_UNKNOWN  # Initial state is unknown
-        self.semaphore = threading.BoundedSemaphore(1)  # To ensure thread-safe access
+        self.state = SPRINKLER_UNKNOWN
+        self.semaphore = threading.BoundedSemaphore(1)
         self.description = description
         # Configure GPIO pin
         try:
             GPIO.setup(pin, GPIO.OUT)
         except Exception as e:
             printl(f"WARN: GPIO is not configured properly: {e}")
-        self.Off()  # Turn off the sprinkler initially
-        if hidden:
-            return
-        Sprinkler.sprinklerCount += 1  # Increment the sprinkler count
+        self.Off()
+        if not hidden:
+            Sprinkler.sprinklerCount += 1
 
     def displayCount(self):
         printl(f"Total Sprinklers {Sprinkler.sprinklerCount}")
 
     def displaySprinkler(self):
-        self.semaphore.acquire()
-        printl(f"Name: {self.name}, pin: {self.pin}, description: {self.description}, state: {self.state}")
-        self.semaphore.release()
+        with self.semaphore:
+            printl(f"Name: {self.name}, pin: {self.pin}, description: {self.description}, state: {self.state}")
 
     def GetDataHash(self):
-        # Return a dictionary with sprinkler details
-        self.semaphore.acquire()
-        myhash = { "name": self.name, "pin": self.pin, "description": self.description, "state": self.state }
-        self.semaphore.release()
-        return myhash
+        """Return a dictionary with sprinkler details."""
+        with self.semaphore:
+            return {"name": self.name, "pin": self.pin, "description": self.description, "state": self.state}
 
     def GetState(self):
-        # Return the current state of the sprinkler
-        self.semaphore.acquire()
-        mystate = self.state
-        self.semaphore.release()
-        return mystate
+        """Return the current state of the sprinkler."""
+        with self.semaphore:
+            return self.state
 
     def On(self):
-        # Turn on the sprinkler
+        """Turn on the sprinkler."""
         printl(f"INFO: Turning on sprinkler: {self.name}")
-        self.semaphore.acquire()
-        try:
-            GPIO.output(self.pin, SPRINKLER_ON)
-            self.state = SPRINKLER_ON
-        except Exception as e:
-            printl(f"WARN: GPIO is not configured properly: {e}")
-        self.semaphore.release()
+        with self.semaphore:
+            try:
+                GPIO.output(self.pin, SPRINKLER_ON)
+                self.state = SPRINKLER_ON
+            except Exception as e:
+                printl(f"WARN: GPIO is not configured properly: {e}")
 
     def Off(self):
-        # Turn off the sprinkler
-        self.semaphore.acquire()
-        printl(f"INFO: Turning off sprinkler: {self.name}")
-        try:
-            GPIO.output(self.pin, SPRINKLER_OFF)
-            self.state = SPRINKLER_OFF
-        except Exception as e:
-            printl(f"WARN: GPIO is not configured properly: {e}")
-        self.semaphore.release()
+        """Turn off the sprinkler."""
+        with self.semaphore:
+            printl(f"INFO: Turning off sprinkler: {self.name}")
+            try:
+                GPIO.output(self.pin, SPRINKLER_OFF)
+                self.state = SPRINKLER_OFF
+            except Exception as e:
+                printl(f"WARN: GPIO is not configured properly: {e}")
 
 ###############################################################################
 
@@ -141,20 +133,15 @@ class MyTCPHandler(socketserver.StreamRequestHandler):
 
 # Lawn class to manage all sprinklers and schedules
 class Lawn:     
+    """Manages all sprinklers and schedules."""
     def __init__(self):
         # Initialize the scheduler
         self.scheduler = BackgroundScheduler({
-           'apscheduler.executors.default': {
-               'class': 'apscheduler.executors.pool:ThreadPoolExecutor',
-               'max_workers': '1'
-           },
-           'apscheduler.executors.processpool': {
-               'type': 'processpool',
-               'max_workers': '1'
-           },
-           'apscheduler.job_defaults.coalesce': 'false',
-           'apscheduler.job_defaults.max_instances': '1',
-           'apscheduler.timezone': mst
+            'apscheduler.executors.default': {'class': 'apscheduler.executors.pool:ThreadPoolExecutor', 'max_workers': '1'},
+            'apscheduler.executors.processpool': {'type': 'processpool', 'max_workers': '1'},
+            'apscheduler.job_defaults.coalesce': 'false',
+            'apscheduler.job_defaults.max_instances': '1',
+            'apscheduler.timezone': mst
         })
         self.scheduler.start()
         self.server = None
@@ -162,18 +149,18 @@ class Lawn:
         self.sprinklers = None
         self.incomingMessageQueue = queue.Queue()  # Queue for incoming messages
         self.outgoingMessageQueue = queue.Queue()  # Queue for outgoing messages
- 
+        self.stopEvent = threading.Event()  # Event to signal stopping of sprinkler jobs
+
     def __del__(self):
         # Shutdown the scheduler when the object is deleted
         self.scheduler.shutdown()
-        
+
     def TurnOffAllSprinklers(self):
-        # Turn off all sprinklers
-        if self.sprinklers == None:
+        """Turn off all sprinklers."""
+        if self.sprinklers is None:
             return
         for zone in self.sprinklers:
             self.sprinklers[zone].Off()
-        return
 
     def GetSocketData(self):
         # Retrieve data from the incoming message queue
@@ -191,19 +178,19 @@ class Lawn:
           return SPRINKLER_UNKNOWN
 
     def GetAllSprinklers(self):
+        """Return a dict of all sprinklers with their next scheduled runtime."""
         if self.sprinklers is None:
             printl("WARN: No sprinklers defined for lawn.")
             return {}
         mysprinklers = {}
 
-        # Iterate over all jobs first
+        # Assign next runtime from jobs
         for job in self.scheduler.get_jobs():
             printl(f"Processing job: {job.name}")
             # Extract the zone list from the job name using regex
             match = re.search(r'zone\[(.*?)\]', job.name)
             if match:
-                zone_list = match.group(1).split(",")  # Extract zone numbers as a list
-                zone_list = [f"zone{z.strip()}" for z in zone_list]  # Format as 'zone1', 'zone2', etc.
+                zone_list = [f"zone{z.strip()}" for z in match.group(1).split(",")]
                 for zone in zone_list:
                     if zone in self.sprinklers:
                         sprinkler_data = self.sprinklers[zone].GetDataHash()
@@ -213,7 +200,7 @@ class Lawn:
                     else:
                         printl(f"Zone {zone} in job {job.name} is not recognized.")
 
-        # Add any zones that are not part of any job
+        # Add zones not in any job
         for zone in self.sprinklers:
             if zone not in mysprinklers:
                 sprinkler_data = self.sprinklers[zone].GetDataHash()
@@ -283,13 +270,21 @@ class Lawn:
         printl(f"{message}")
 
     def RunEvent(self, schedName, zones, duration):
+        """Run a scheduled or manual event for a list of zones."""
         self.TurnOffAllSprinklers()
+        self.stopEvent.clear()
         try:
             printl(f"Running event {schedName} on zones: {', '.join(map(str, zones))}")
             for zone in zones:
+                if self.stopEvent.is_set():
+                    printl("Stop event detected, ending job early.")
+                    break
                 printl(f"Starting sprinklers in zone: {zone} Duration: {duration} minutes.")
                 self.sprinklers[f"zone{zone}"].On()
-                for counter in range(0, duration * 60, 1):
+                for _ in range(duration * 60):
+                    if self.stopEvent.is_set():
+                        printl("Stop event detected, turning off current zone.")
+                        break
                     time.sleep(1)
                     self.GetSocketData()
                 printl(f"Stopping sprinklers in zone: {zone}")
@@ -297,8 +292,6 @@ class Lawn:
             printl(f"Finished event {schedName} on zones: {', '.join(map(str, zones))}")
         finally:
             pass
-
-        return
 
     #Once an event is scheduled that event is responsible for 
     # scheduling its next event
@@ -423,25 +416,21 @@ def main(yamlConfig, mylawn, isActiveEvent):
 # Flask route for the web interface
 @app.route('/', methods=['GET', 'POST'])
 def index():
-    global args
-    global sprinklerThread
-    global mylawn
-
+    """Main web interface."""
+    global args, sprinklerThread, mylawn
     if sprinklerThread is None:
         mylawn = Lawn()
         isActiveEvent = threading.Event()
         sprinklerThread = threading.Thread(target=main, args=[args.yamlConfig, mylawn, isActiveEvent])
         sprinklerThread.start()
         isActiveEvent.wait()
-    
     sprinklers = {}
     schedule_status = ""
     if mylawn is not None:
-        if mylawn.sprinklers is None:  # Ensure sprinklers are initialized
+        if mylawn.sprinklers is None:
             mylawn.Configure(args.yamlConfig)
         sprinklers = mylawn.GetAllSprinklers()
-        schedule_status = mylawn.GetStatus() 
-
+        schedule_status = mylawn.GetStatus()
     if request.method == 'POST':
         if 'submit' in request.form:
             if request.form['submit'][:4] == 'zone':
@@ -454,20 +443,30 @@ def index():
 
 @app.route('/control', methods=['POST'])
 def control():
-    zone = request.args.get('zone')  # Get the zone parameter
-    action = request.args.get('action')  # Get the action parameter
-    print(f"Control request: zone={zone}, action={action}")  # Debug log
-
+    """AJAX endpoint to control individual zones or all zones."""
+    zone = request.args.get('zone')
+    action = request.args.get('action')
+    printl(f"Control request: zone={zone}, action={action}")
     if action == 'on':
-        mylawn.RunEvent("Web Event", [zone], 15)  # Example: Turn on the zone for 15 minutes
+        mylawn.RunEvent("Web Event", [zone], 15)
     elif action == 'off':
         if zone == 'All':
+            mylawn.stopEvent.set()
             mylawn.TurnOffAllSprinklers()
         else:
             mylawn.TurnOffZone(zone)
     return jsonify({"status": "success", "zone": zone, "action": action})
 
-
-if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=8080, threaded=True, debug=True)
+@app.route('/run_zones', methods=['POST'])
+def run_zones():
+    """AJAX endpoint to run a series of zones for a given duration."""
+    data = request.get_json()
+    zones_str = data.get('zones', '')
+    duration = int(data.get('duration', 10))
+    zones = [z.strip() for z in zones_str.split(',') if z.strip()]
+    if not zones:
+        return jsonify({"status": "No zones specified"}), 400
+    printl(f"Running zones in series: {zones} for {duration} minutes each")
+    mylawn.RunEvent("Web RunZones", zones, duration)
+    return jsonify({"status": f"Started zones {', '.join(zones)} for {duration} minutes each"})
 
